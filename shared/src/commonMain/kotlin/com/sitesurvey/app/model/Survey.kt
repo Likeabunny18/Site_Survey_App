@@ -1,7 +1,8 @@
 package com.sitesurvey.app.model
 
 import kotlinx.serialization.Serializable
-import java.util.UUID
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.acos
@@ -12,6 +13,9 @@ import kotlin.math.hypot
 import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.math.tan
+
+@OptIn(ExperimentalUuidApi::class)
+fun newId(): String = Uuid.random().toString()
 
 /** A point on the floor in room coordinates (meters). Room origin is the first corner, floor is y = 0. */
 @Serializable
@@ -31,7 +35,7 @@ enum class OpeningType(val label: String) { DOOR("Door"), WINDOW("Window"), OPEN
 /** A rectangle on wall [wall]: u along the wall from its start corner, v up from the floor. */
 @Serializable
 data class Opening(
-    val id: String = UUID.randomUUID().toString(),
+    val id: String = newId(),
     val type: OpeningType,
     val wall: Int,
     val u0: Float, val u1: Float,
@@ -48,7 +52,7 @@ enum class GearType(val label: String, val prefix: String) {
 
 @Serializable
 data class Gear(
-    val id: String = UUID.randomUUID().toString(),
+    val id: String = newId(),
     val type: GearType,
     val model: String = "",
     val notes: String = "",
@@ -85,11 +89,11 @@ data class Gear(
 
 @Serializable
 data class Survey(
-    val id: String = UUID.randomUUID().toString(),
+    val id: String = newId(),
     val name: String,
     val client: String = "",
-    val created: Long = System.currentTimeMillis(),
-    val updated: Long = System.currentTimeMillis(),
+    val created: Long = 0L,
+    val updated: Long = 0L,
     val corners: List<V2> = emptyList(),
     val closed: Boolean = false,
     val ceilingM: Float = 2.74f,      // 9'

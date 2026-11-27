@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import com.sitesurvey.app.model.GearType
 import com.sitesurvey.app.model.Survey
 import com.sitesurvey.app.model.Units
+import com.sitesurvey.app.model.locationOf
 
 @Composable
 fun SurveyScreen(
@@ -195,12 +196,6 @@ fun SurveyScreen(
             onUpdate { it.copy(client = v) }; textEdit = null
         }
     }
-}
-
-fun locationOf(s: Survey, g: com.sitesurvey.app.model.Gear): String = when (g.type) {
-    GearType.DISPLAY -> "Wall ${g.wall + 1}, ${Units.ftInShort(g.height)} AFF"
-    GearType.CEILING_SPEAKER, GearType.CEILING_MIC -> "Ceiling, ${Units.ftInShort(s.ceilingM)}"
-    GearType.TABLE_MIC -> "Table"
 }
 
 @Composable

@@ -29,7 +29,9 @@ class SurveyStore(context: Context) {
 
     fun get(id: String): Survey? = surveys.firstOrNull { it.id == id }
 
-    fun add(s: Survey) {
+    fun add(new: Survey) {
+        val now = System.currentTimeMillis()
+        val s = new.copy(created = now, updated = now)
         surveys = listOf(s) + surveys
         save(s)
     }

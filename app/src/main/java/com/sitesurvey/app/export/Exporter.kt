@@ -12,7 +12,8 @@ import com.sitesurvey.app.model.Survey
 import com.sitesurvey.app.model.Units
 import com.sitesurvey.app.ui.PlanPalette
 import com.sitesurvey.app.ui.PlanRenderer
-import com.sitesurvey.app.ui.locationOf
+import com.sitesurvey.app.model.equipmentCsv
+import com.sitesurvey.app.model.locationOf
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -41,32 +42,7 @@ object Exporter {
         context.startActivity(Intent.createChooser(send, "Export survey").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
-    private fun esc(v: String) = if (v.any { it == ',' || it == '"' || it == '\n' }) "\"" + v.replace("\"", "\"\"") + "\"" else v
-
-    fun csv(s: Survey): String {
-        val sb = StringBuilder()
-        sb.appendLine("Tag,Type,Model / description,Qty,Location,Mount height,Size,Coverage,Notes")
-        for (g in s.gear.sortedBy { it.type.ordinal }) {
-            val size = if (g.type == GearType.DISPLAY) "${g.sizeIn}\"" else ""
-            val cov = when (g.type) {
-                GearType.CEILING_SPEAKER -> "${g.angleDeg.toInt()}° cone, ${Units.ftInShort(s.coverageRadius(g) * 2)} dia at ear"
-                GearType.CEILING_MIC, GearType.TABLE_MIC -> "${Units.ftInShort(g.radiusM)} radius"
-                GearType.DISPLAY -> s.viewCheck(g).let { "${"%.1f".format(it.ratio)}x image height to far seat (${it.verdict})" }
-            }
-            sb.appendLine(listOf(s.tag(g), g.type.label, g.displayName, "1", locationOf(s, g), Units.ftIn(s.gearHeight(g)), size, cov, g.notes)
-                .joinToString(",") { esc(it) })
-        }
-        sb.appendLine()
-        sb.appendLine("Summary")
-        sb.appendLine("Item,Qty")
-        s.gear.groupBy { it.type.label + " | " + it.displayName }.forEach { (k, v) -> sb.appendLine("${esc(k)},${v.size}") }
-        sb.appendLine()
-        sb.appendLine("Room,${esc(s.name)}")
-        sb.appendLine("Area,${esc(Units.sqFt(s.area()))}")
-        sb.appendLine("Ceiling,${esc(Units.ftIn(s.ceilingM))}")
-        for (i in 0 until s.wallCount) sb.appendLine("Wall ${i + 1},${esc(Units.ftIn(s.wallLength(i)))}")
-        return sb.toString()
-    }
+    fun csv(s: Survey): String = equipmentCsv(s)
 
     private fun writePdf(s: Survey, out: File) {
         val doc = PdfDocument()
