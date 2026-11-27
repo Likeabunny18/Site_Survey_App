@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.FileOpen
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -35,6 +36,7 @@ fun HomeScreen(
     listState: androidx.compose.foundation.lazy.LazyListState = rememberLazyListState(),
     onNew: () -> Unit,
     onOpen: (String) -> Unit,
+    onImport: () -> Unit = {},
     update: @Composable () -> Unit = {},
 ) {
     val fmt = SimpleDateFormat("MMM d, h:mm a", Locale.US)
@@ -42,11 +44,12 @@ fun HomeScreen(
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Surveys", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
             update()
+            IconButton(onClick = onImport) { Icon(Icons.Outlined.FileOpen, "Import room scan") }
             IconButton(onClick = onNew) { Icon(Icons.Outlined.Add, "New survey", tint = Accent) }
         }
         if (surveys.isEmpty()) {
             Text(
-                "Tap + to start a survey. The camera opens and walks you through the room.",
+                "Tap + to start a survey. The camera opens and walks you through the room. Have an iPhone LiDAR scan? Share the OBJ to Site Survey, or tap the file icon.",
                 color = Muted, modifier = Modifier.padding(16.dp),
             )
         }

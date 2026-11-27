@@ -1,6 +1,13 @@
 package com.sitesurvey.app
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.IntentCompat
+import com.sitesurvey.app.data.ScanImporter
+import com.sitesurvey.app.ui.ImportSheet
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -36,12 +43,29 @@ import java.util.Locale
 class MainActivity : ComponentActivity() {
     private lateinit var store: SurveyStore
     private lateinit var updater: Updater
+    private var incoming by mutableStateOf<Uri?>(null)
+
+    private fun takeIntent(i: Intent?) {
+        i ?: return
+        val uri = when (i.action) {
+            Intent.ACTION_SEND -> IntentCompat.getParcelableExtra(i, Intent.EXTRA_STREAM, Uri::class.java)
+            Intent.ACTION_VIEW -> i.data
+            else -> null
+        }
+        if (uri != null) incoming = uri
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        takeIntent(intent)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         store = SurveyStore(applicationContext)
         updater = Updater(applicationContext)
+        if (savedInstanceState == null) takeIntent(intent)
         setContent {
             SurveyTheme {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -50,6 +74,24 @@ class MainActivity : ComponentActivity() {
                     val homeList = rememberLazyListState()
                     val scope = rememberCoroutineScope()
                     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { scope.launch { updater.check() } }
+                    var importOutcome by remember { mutableStateOf<ScanImporter.Outcome?>(null) }
+                    val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let { u -> incoming = u } }
+                    androidx.compose.runtime.LaunchedEffect(incoming) {
+                        val u = incoming ?: return@LaunchedEffect
+                        importOutcome = ScanImporter.read(applicationContext, u)
+                        incoming = null
+                    }
+                    importOutcome?.let { out ->
+                        ImportSheet(out, onDismiss = { importOutcome = null }, onCreate = {
+                            val found = out as? ScanImporter.Outcome.Found
+                            if (found != null) {
+                                val s = found.result.survey
+                                store.add(s)
+                                screen = "survey:${s.id}"
+                            }
+                            importOutcome = null
+                        })
+                    }
                     val scrolls = remember { mutableMapOf<String, ScrollState>() }
                     val id = screen.substringAfter(':', "")
                     val survey = store.get(id)
@@ -80,6 +122,7 @@ class MainActivity : ComponentActivity() {
                                 screen = "ar:${s.id}"
                             },
                             onOpen = { screen = "survey:$it" },
+                            onImport = { pick.launch(arrayOf("*/*")) },
                             update = { UpdateChip(updater.state) { scope.launch { updater.install() } } },
                         )
                     }
