@@ -11,6 +11,12 @@ import androidx.compose.foundation.ScrollState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import kotlinx.coroutines.launch
+import com.sitesurvey.app.update.Updater
+import com.sitesurvey.app.update.UpdateChip
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -29,17 +35,21 @@ import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     private lateinit var store: SurveyStore
+    private lateinit var updater: Updater
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         store = SurveyStore(applicationContext)
+        updater = Updater(applicationContext)
         setContent {
             SurveyTheme {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     // Screen is "home", "survey:<id>" or "ar:<id>".
                     var screen by rememberSaveable { mutableStateOf("home") }
                     val homeList = rememberLazyListState()
+                    val scope = rememberCoroutineScope()
+                    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { scope.launch { updater.check() } }
                     val scrolls = remember { mutableMapOf<String, ScrollState>() }
                     val id = screen.substringAfter(':', "")
                     val survey = store.get(id)
@@ -70,6 +80,7 @@ class MainActivity : ComponentActivity() {
                                 screen = "ar:${s.id}"
                             },
                             onOpen = { screen = "survey:$it" },
+                            update = { UpdateChip(updater.state) { scope.launch { updater.install() } } },
                         )
                     }
                 }

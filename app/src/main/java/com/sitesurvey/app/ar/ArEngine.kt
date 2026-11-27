@@ -7,6 +7,8 @@ import android.opengl.Matrix
 import android.os.Handler
 import android.os.Looper
 import com.google.ar.core.Anchor
+import com.google.ar.core.CameraConfig
+import com.google.ar.core.CameraConfigFilter
 import com.google.ar.core.Config
 import com.google.ar.core.DepthPoint
 import com.google.ar.core.Frame
@@ -16,6 +18,7 @@ import com.google.ar.core.Pose
 import com.google.ar.core.Session
 import com.google.ar.core.TrackingFailureReason
 import com.google.ar.core.TrackingState
+import java.util.EnumSet
 import java.util.concurrent.ConcurrentLinkedQueue
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
@@ -61,23 +64,35 @@ class ArEngine(private val context: Context) : GLSurfaceView.Renderer {
     /** Returns null on success, or a message to show. */
     fun createSession(): String? = try {
         val s = Session(context)
+        // Pick the back camera at 30 fps explicitly rather than trusting the default on new phones.
+        val filter = CameraConfigFilter(s)
+            .setFacingDirection(CameraConfig.FacingDirection.BACK)
+            .setTargetFps(EnumSet.of(CameraConfig.TargetFps.TARGET_FPS_30))
+        val configs = s.getSupportedCameraConfigs(filter)
+        configs.firstOrNull()?.let { s.cameraConfig = it }
+        cameraInfo = configs.firstOrNull()?.let { "${it.imageSize.width}x${it.imageSize.height} cam ${it.cameraId}" } ?: "default cam"
         val cfg = Config(s).apply {
             planeFindingMode = Config.PlaneFindingMode.HORIZONTAL_AND_VERTICAL
             focusMode = Config.FocusMode.AUTO
-            updateMode = Config.UpdateMode.LATEST_CAMERA_IMAGE
-            if (s.isDepthModeSupported(Config.DepthMode.AUTOMATIC)) depthMode = Config.DepthMode.AUTOMATIC
+            updateMode = Config.UpdateMode.BLOCKING
         }
         s.configure(cfg)
         session = s
         null
     } catch (e: Exception) {
-        "AR couldn't start: ${e.javaClass.simpleName}"
+        "AR couldn't start: ${e.javaClass.simpleName} ${e.message ?: ""}"
     }
 
+    @Volatile private var cameraInfo = ""
+    @Volatile private var lastError: String? = null
+    private var framesWithImage = 0
+    private var startedAt = 0L
+
     fun resume(): String? = try {
+        startedAt = System.currentTimeMillis(); framesWithImage = 0; lastError = null
         session?.resume(); view.onResume(); null
     } catch (e: Exception) {
-        "Camera is busy. Close other camera apps and try again."
+        "Camera didn't start: ${e.javaClass.simpleName}. Close other camera apps and try again."
     }
 
     fun pause() {
@@ -155,7 +170,12 @@ class ArEngine(private val context: Context) : GLSurfaceView.Renderer {
             s.setDisplayGeometry(rotation, width, height)
             geometryDirty = false
         }
-        val frame = try { s.update() } catch (e: Exception) { return }
+        val frame = try { s.update() } catch (e: Exception) {
+            lastError = "${e.javaClass.simpleName}: ${e.message ?: ""}"
+            publish(ArSnapshot(false, "AR error: $lastError", null, width, height, false))
+            return
+        }
+        if (frame.timestamp != 0L) framesWithImage++
         bg.draw(frame)
 
         val cam = frame.camera
@@ -167,7 +187,13 @@ class ArEngine(private val context: Context) : GLSurfaceView.Renderer {
             }
         }
         if (!tracking) {
-            publish(ArSnapshot(false, failureText(cam.trackingFailureReason), null, width, height, false))
+            val waited = System.currentTimeMillis() - startedAt
+            val msg = if (framesWithImage == 0 && waited > 3000)
+                "Camera isn't sending images ($cameraInfo). Close and reopen the app."
+            else if (waited > 8000)
+                "${failureText(cam.trackingFailureReason)} [${cam.trackingState} ${cam.trackingFailureReason}, $framesWithImage frames, $cameraInfo]"
+            else failureText(cam.trackingFailureReason)
+            publish(ArSnapshot(false, msg, null, width, height, false))
             return
         }
         cam.getProjectionMatrix(proj, 0, 0.05f, 60f)

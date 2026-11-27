@@ -284,7 +284,7 @@ fun ArScreen(survey: Survey, onUpdate: ((Survey) -> Survey) -> Unit, onBack: () 
         }
     }
 
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
+    Box(Modifier.fillMaxSize()) {
         AndroidView(factory = { glView }, modifier = Modifier.fillMaxSize())
 
         // Overlay: the room, gear and crosshair, drawn from the latest camera pose.

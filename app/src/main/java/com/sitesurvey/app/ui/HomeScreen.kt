@@ -35,11 +35,13 @@ fun HomeScreen(
     listState: androidx.compose.foundation.lazy.LazyListState = rememberLazyListState(),
     onNew: () -> Unit,
     onOpen: (String) -> Unit,
+    update: @Composable () -> Unit = {},
 ) {
     val fmt = SimpleDateFormat("MMM d, h:mm a", Locale.US)
     Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Surveys", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+            update()
             IconButton(onClick = onNew) { Icon(Icons.Outlined.Add, "New survey", tint = Accent) }
         }
         if (surveys.isEmpty()) {
